@@ -1,63 +1,43 @@
 import itertools
-from collections import defaultdict
 
-def apriori(transactions, min_support):
-    item_counts = defaultdict(int)
-    for tx in transactions:
-        for item in tx:
-            item_counts[frozenset([item])] += 1
+txns = [
+    ['apple', 'banana'],
+    ['milk', 'bread', 'butter'],
+    ['tea', 'sugar'],
+    ['apple', 'butter'],
+    ['milk', 'cheese', 'apple'],
+    ['cheese', 'sugar', 'milk'],
+    ['tea', 'bread', 'apple', 'sugar', 'butter']
+]
 
-    num_tx = float(len(transactions))
-    L = []
-    support_data = {}
+min_sup = 0.3
+min_cnt = min_sup * len(txns)
 
-    L1 = set()
-    for itemset, count in item_counts.items():
-        support = count / num_tx
-        if support >= min_support:
-            L1.add(itemset)
-            support_data[itemset] = support
-    L.append(L1)
+its = sorted(set(i for t in txns for i in t))
 
-    k = 2
-    while L[k-2]:
-        Lk_1 = L[k-2]
-        Ck = set()
-        
-        items_in_Lk_1 = sorted(list(Lk_1))
-        for i in range(len(items_in_Lk_1)):
-             for j in range(i + 1, len(items_in_Lk_1)):
-                 item1 = items_in_Lk_1[i]
-                 item2 = items_in_Lk_1[j]
-                 if sorted(list(item1))[:k-2] == sorted(list(item2))[:k-2]:
-                      candidate = item1.union(item2)
-                      if len(candidate) == k:
-                           all_subsets_frequent = True
-                           for subset in itertools.combinations(candidate, k - 1):
-                               if frozenset(subset) not in Lk_1:
-                                   all_subsets_frequent = False
-                                   break
-                           if all_subsets_frequent:
-                               Ck.add(candidate)
+def sup_cnt(iset, ts):
+    return sum(1 for t in ts if set(iset).issubset(t))
 
-        candidate_counts = defaultdict(int)
-        for tx in transactions:
-            tx_set = set(tx)
-            for candidate in Ck:
-                if candidate.issubset(tx_set):
-                    candidate_counts[candidate] += 1
+def gen_cands(prev_s, size):
+    return [list(set(a) | set(b)) for i, a in enumerate(prev_s)
+            for b in prev_s[i+1:] if len(set(a) | set(b)) == size]
 
-        Lk = set()
-        for itemset, count in candidate_counts.items():
-            support = count / num_tx
-            if support >= min_support:
-                Lk.add(itemset)
-                support_data[itemset] = support
+freq_sets = {}
+k = 1
+curr_sets = [[i] for i in its if sup_cnt([i], txns) >= min_cnt]
+freq_sets[k] = curr_sets
 
-        if not Lk:
-            break
-        L.append(Lk)
-        k += 1
+while curr_sets:
+    k += 1
+    cands = gen_cands(curr_sets, k)
+    v_sets = [c for c in cands if sup_cnt(c, txns) >= min_cnt]
+    if not v_sets:
+        break
+    freq_sets[k] = v_sets
+    curr_sets = v_sets
 
-    all_frequent_itemsets = set().union(*L)
-    return all_frequent_itemsets, support_data
+for k, isets in freq_sets.items():
+    print(f"\nFrequent {k}-Itemsets:")
+    for iset in isets:
+        s_count = sup_cnt(iset, txns)
+        print(f"{set(iset)} - Support: {s_count}/{len(txns)} ({s_count / len(txns) * 100:.2f}%)")
